@@ -2,3 +2,6 @@ discord.py
 loguru
 PyNaCl
 yt-dlp
+requests
+aiohttp
+python-dotenv

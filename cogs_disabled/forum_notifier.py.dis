@@ -1,0 +1,90 @@
+# cogs/forum_notifier.py
+
+import discord
+from discord.ext import commands, tasks
+import json
+import os
+from module.forum_notifier.scraper import ForumScraper
+from module.forum_notifier.data_manager import load_data, save_data, update_data
+from loguru import logger
+
+class ForumNotifier(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        # 讀取設定檔
+        settings_path = os.path.join("config", "settings.json")
+        with open(settings_path, "r", encoding="utf-8") as f:
+            settings = json.load(f)
+
+        forum_settings = settings.get("forum_settings", {})
+        notifier_settings = settings.get("forum_notifier", {})
+
+        self.base_url = forum_settings.get("base_url", "")
+        self.forums = forum_settings.get("forums", {})
+        self.channel_id = notifier_settings.get("channel_id")
+        self.interval_minutes = notifier_settings.get("interval_minutes", 10)
+        self.data_file = os.path.join("data", "forum_notifier.json")
+
+        self.scraper = ForumScraper(self.base_url, self.forums)
+
+        # 啟動定時任務
+        self.check_new_posts_loop.add_exception_type(Exception)
+        self.check_new_posts_loop.start()
+        logger.info("ForumNotifier 已啟動")
+
+    def cog_unload(self):
+        self.check_new_posts_loop.cancel()
+        logger.info("ForumNotifier 已卸載")
+
+    @tasks.loop(minutes=10)  # 任務週期，每 10 分鐘檢查一次
+    async def check_new_posts_loop(self):
+        logger.info("開始檢查新文章")
+        # 加載本地數據
+        existing_data = load_data(self.data_file)
+        # 抓取新文章
+        all_threads = await self.scraper.fetch_all_threads()
+
+        # 發送頻道
+        channel = self.bot.get_channel(self.channel_id)
+        if not channel:
+            logger.error(f"無法找到頻道 ID：{self.channel_id}")
+            return
+
+        for forum_name, threads in all_threads.items():
+            board_id = forum_name  # 使用板塊名稱作為鍵
+            new_threads, existing_data = update_data(existing_data, threads, board_id)
+
+            for thread in new_threads:
+                # 只抓取新文章，並檢查是否需要發送其他詳細資訊
+                embed = discord.Embed()
+                # Title
+                embed_title = f"{thread['forum_name']}"
+                embed.url = thread["forum_url"]
+                embed.title = f"[{embed_title}]({embed.url})"
+                # Description
+                description_lines = []
+                line1_parts = []
+                if thread["top_status"] == "置頂":
+                    line1_parts.append("置頂")
+                description_lines.append(f"[{line1_parts}]({thread['forum_url']})")
+                # 第二行：文章標題與連結
+                title_line = f"[{thread['title']}]({thread['link']})"
+                description_lines.append(title_line)
+                embed.description = "\n".join(description_lines)
+                # 發送訊息
+                await channel.send(embed=embed)
+                logger.info(f"已推播文章：{thread['title']}")
+
+        # 儲存更新後的數據
+        save_data(self.data_file, existing_data)
+        logger.info("檢查新文章完成")
+
+    @check_new_posts_loop.before_loop
+    async def before_check_new_posts_loop(self):
+        await self.bot.wait_until_ready()
+        # 在這裡設定循環間隔時間
+        self.check_new_posts_loop.change_interval(minutes=self.interval_minutes)
+        logger.info(f"ForumNotifier 已準備就緒，將每 {self.interval_minutes} 分鐘檢查一次新文章")
+
+async def setup(bot):
+    await bot.add_cog(ForumNotifier(bot))

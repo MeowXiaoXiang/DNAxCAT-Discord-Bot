@@ -9,8 +9,11 @@ __pycache__/
 # C extensions
 *.so
 
-# secret
-config/setting.json
+# config
+config/settings.json
+
+# data
+data/
 
 # log folder
 logs/

@@ -1,9 +1,10 @@
 import os
 import platform
-import urllib.request
 import zipfile
 import tarfile
 import time
+import aiohttp
+import asyncio
 from loguru import logger
 
 def format_size(size):
@@ -19,46 +20,41 @@ def format_time(seconds):
     minutes, seconds = divmod(int(seconds), 60)
     return f"{minutes}分{seconds}秒"
 
-def download_ffmpeg_with_status(url, file_name):
-    """下載文件並顯示進度"""
+async def async_download_ffmpeg_with_status(url, file_name):
+    """非同步下載文件並顯示進度"""
     try:
-        response = urllib.request.urlopen(url)
-        total_size = int(response.getheader('Content-Length').strip())
-        block_size = 1024
-        downloaded = 0
-        start_time = time.time()
-        line_length = 80  # 固定行長
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                total_size = int(response.headers['Content-Length'])
+                block_size = 1024
+                downloaded = 0
+                start_time = time.time()
 
-        while True:
-            buffer = response.read(block_size)
-            if not buffer:
-                break
-            downloaded += len(buffer)
-            with open(file_name, 'ab') as file:
-                file.write(buffer)
-            
-            percent = int(downloaded * 100 / total_size)
-            elapsed_time = time.time() - start_time
-            speed = downloaded / elapsed_time if elapsed_time > 0 else 0
-            speed_str = format_size(speed) + "/s"
-            downloaded_str = format_size(downloaded)
-            total_str = format_size(total_size)
-            time_str = format_time(elapsed_time)
-            
-            # 單行顯示下載進度，固定長度
-            line = f"\r下載中: [{percent}%] 速度: {speed_str}，已下載: {downloaded_str} / {total_str}，耗時: {time_str}"
-            print(line.ljust(line_length), end="")
+                with open(file_name, 'wb') as f:
+                    while True:
+                        chunk = await response.content.read(block_size)
+                        if not chunk:
+                            break
+                        downloaded += len(chunk)
+                        f.write(chunk)
 
-        # 下載完成後顯示總耗時
-        duration = time.time() - start_time
-        print(f"\n下載完成: {total_str}，耗時: {format_time(duration)}")
-        return 0  # 成功狀態碼
+                        percent = int(downloaded * 100 / total_size)
+                        elapsed_time = time.time() - start_time
+                        speed = downloaded / elapsed_time if elapsed_time > 0 else 0
+                        speed_str = f"{speed / 1024:.2f} KB/s"
+                        downloaded_str = f"{downloaded / 1024 / 1024:.2f} MB"
+                        total_str = f"{total_size / 1024 / 1024:.2f} MB"
+                        time_str = format_time(elapsed_time)
+                        print(f"\r下載中: [{percent}%] 速度: {speed_str}，已下載: {downloaded_str} / {total_str}，耗時: {time_str}", end="")
 
+                print(f"\n下載完成: {total_str}")
+                return 0  # 成功狀態碼
     except Exception as e:
         logger.error(f"下載失敗: {e}")
         return 1  # 失敗狀態碼
 
-def check_and_download_ffmpeg():
+async def async_check_and_download_ffmpeg():
+    """檢查並非同步下載 ffmpeg"""
     # 設定平台特定的下載路徑
     system = platform.system()
     base_dir = os.path.join("module", "ffmpeg", system)
@@ -87,8 +83,7 @@ def check_and_download_ffmpeg():
 
     # 開始下載
     logger.info("正在下載 ffmpeg...")
-    status = download_ffmpeg_with_status(url, file_name)
-
+    status = await async_download_ffmpeg_with_status(url, file_name)
     if status == 1:
         return 1  # 下載失敗
 
@@ -130,7 +125,7 @@ def check_and_download_ffmpeg():
 
 # 僅在此檔案直接執行時才運行
 if __name__ == "__main__":
-    status = check_and_download_ffmpeg()
+    status = asyncio.run(async_check_and_download_ffmpeg())
     if status == 0:
         logger.info("ffmpeg 下載與設置完成。")
     else:

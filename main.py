@@ -11,12 +11,13 @@ import os
 import sys
 import json
 import traceback
+from dotenv import load_dotenv
 #------------------------------------------------------------------
 version = "1.0"
 start_time = datetime.now()
-settings = json.load(open("config/setting.json", 'r', encoding='utf8')) # 讀取setting.json
+settings = json.load(open("config/settings.json", 'r', encoding='utf8')) # 讀取setting.json
 #------------------------導入 ffmpeg 檢查模組------------------------
-from module.ffmpeg.checker import check_and_download_ffmpeg
+from module.ffmpeg.checker import async_check_and_download_ffmpeg
 #-------------------------------------------------------------------
 intents = discord.Intents.default()
 intents.members = True
@@ -32,7 +33,7 @@ async def on_ready():
     logger.info('[初始化] 載入基本指令')
     await bot.add_cog(ManagementCommand(bot))
     logger.info('[初始化] 檢查並下載 ffmpeg')
-    status = check_and_download_ffmpeg()
+    status = await async_check_and_download_ffmpeg()  # 使用 await 調用非同步函數
     if status != 0:
         logger.error("ffmpeg 檢查失敗，程式將退出。")
         await bot.close()
@@ -249,23 +250,37 @@ async def on_disconnect():
 
 #---------------------------loguru設定---------------------------
 def set_logger():
-    log_format = (
-        '{time:YYYY-MM-DD HH:mm:ss} | '
-        '{level} | <{module}>:{function}:{line} | '
-        '{message}'
+    """配置 loguru 的輸出"""
+    logger.remove()  # 移除所有預設的 Sink，避免重複輸出
+
+    # 確認是否啟用 DEBUG 模式，默認為 False
+    debug_mode = os.getenv('DEBUG', 'false').lower() == 'true'
+
+    # 配置終端輸出
+    logger.add(
+        sys.stdout,
+        level="DEBUG" if debug_mode else "INFO",  # 根據 DEBUG 模式調整
+        colorize=True  # 保留彩色輸出
     )
+
+    # 配置檔案輸出
     logger.add(
         './logs/system.log',
-        rotation='7 day',
-        retention='30 days',
-        level='INFO',
+        rotation='7 days',  # 每 7 天輪轉日誌
+        retention='30 days',  # 保存最近 30 天的日誌
+        level="INFO",  # 檔案中僅記錄 INFO 級別及以上的日誌
         encoding='UTF-8',
-        format=log_format
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level} | {message}"
     )
 
 if __name__ == '__main__':
     set_logger()
+    load_dotenv()
+    TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+    if not TOKEN:
+        logger.critical("DISCORD_BOT_TOKEN 未設置，請檢查 .env 文件或環境變數配置！")
+        sys.exit(1)
     try:
-        bot.run(settings['TOKEN'])
+        bot.run(TOKEN)
     except Exception as e:
         logger.critical(str(e))
