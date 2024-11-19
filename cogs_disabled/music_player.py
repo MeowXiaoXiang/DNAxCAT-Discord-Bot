@@ -8,6 +8,7 @@ import os
 import asyncio
 from loguru import logger
 import time
+from module.ffmpeg.checker import async_check_and_download_ffmpeg
 
 # 設定 ffmpeg 的路徑
 FFMPEG_PATH = "module/ffmpeg/Windows/ffmpeg.exe" if platform.system() == "Windows" else "module/ffmpeg/Linux/ffmpeg"
@@ -198,6 +199,18 @@ class MusicPlayer(commands.Cog):
         self.update_task = self.progress_updater  # 正確指向 tasks.loop 實例  # 用於定期更新嵌入訊息的任務
         self.is_stopping = False
         self.current_song_id = None  # 當前播放歌曲的唯一 ID
+
+    @staticmethod
+    async def check_ffmpeg():
+        """檢查並下載 FFmpeg"""
+        from module.ffmpeg.checker import async_check_and_download_ffmpeg
+
+        logger.info("[MusicPlayer] 檢查並下載 FFmpeg")
+        status = await async_check_and_download_ffmpeg()
+        if status != 0:
+            logger.error("[MusicPlayer] FFmpeg 檢查失敗")
+            raise RuntimeError("[MusicPlayer] FFmpeg 檢查失敗，無法啟動音樂功能")
+        logger.info("[MusicPlayer] FFmpeg 檢查完成")
 
     def clear_downloads(self):
         for file in os.listdir(self.download_folder):
@@ -652,7 +665,14 @@ class MusicPlayer(commands.Cog):
         self.playlist_manager = PlaylistManager()
         self.embed_manager = EmbedManager(self)
 
-        logger.info("MusicPlayer Cog 已卸載並重設所有屬性。")
+        logger.info("[MusicPlayer] Cog 已卸載並重設所有屬性。")
 
 async def setup(bot):
-    await bot.add_cog(MusicPlayer(bot))
+    music_player = MusicPlayer(bot)
+    try:
+        await music_player.check_ffmpeg()  # 檢查 FFmpeg
+        await bot.add_cog(music_player)
+        logger.info("[MusicPlayer] Cog 已成功載入")
+    except RuntimeError as e:
+        logger.error(f"[MusicPlayer] Cog 加載失敗：{e}")
+        await bot.close()

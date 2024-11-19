@@ -16,8 +16,6 @@ from dotenv import load_dotenv
 version = "1.0"
 start_time = datetime.now()
 settings = json.load(open("config/settings.json", 'r', encoding='utf8')) # 讀取setting.json
-#------------------------導入 ffmpeg 檢查模組------------------------
-from module.ffmpeg.checker import async_check_and_download_ffmpeg
 #-------------------------------------------------------------------
 intents = discord.Intents.default()
 intents.members = True
@@ -32,13 +30,6 @@ async def on_ready():
     bot.owner_id = app_info.owner.id
     logger.info('[初始化] 載入基本指令')
     await bot.add_cog(ManagementCommand(bot))
-    logger.info('[初始化] 檢查並下載 ffmpeg')
-    status = await async_check_and_download_ffmpeg()  # 使用 await 調用非同步函數
-    if status != 0:
-        logger.error("ffmpeg 檢查失敗，程式將退出。")
-        await bot.close()
-        return
-    logger.info('[初始化] ffmpeg 已準備就緒')
     await load_all_extensions()
     logger.info('[初始化] 同步斜線指令')
     slash_command = await bot.tree.sync()
@@ -79,7 +70,7 @@ async def on_command_error(ctx, error):
     maintainer = bot.get_user(bot.owner_id)
     embed = discord.Embed(title="前綴指令錯誤 Error", description=str(error))
     embed.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar.url)
-    embed.add_field(name="訊息內容 Context", value=ctx.message.content)
+    embed.add_field(name="訊息5內容 Context", value=ctx.message.content)
     if ctx.channel.type == discord.ChannelType.private:
         embed.add_field(name="頻道 Channel", value="私人 Private")
         logger.error(f"{ctx.author.name}({ctx.author.id}):{error}\n{traceback.format_exc()}")

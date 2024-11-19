@@ -4,4 +4,6 @@ PyNaCl
 yt-dlp
 requests
 aiohttp
+aiofiles
+asyncio_throttle
 python-dotenv
