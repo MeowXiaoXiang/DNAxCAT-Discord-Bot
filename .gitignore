@@ -22,8 +22,8 @@ logs/
 module/ffmpeg/Windows/
 module/ffmpeg/Linux/
 
-# music files
-music_downloads/
+# temp files
+temp/
 
 # Distribution / packaging
 .Python

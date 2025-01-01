@@ -1,12 +1,10 @@
 import discord
 from discord.ext import commands, tasks
-import asyncio
 import json
 import os
 from module.forum_notifier.scraper import Scraper
 from module.forum_notifier.data_manager import load_data, save_data, update_data
 from loguru import logger
-
 
 class ForumNotifier(commands.Cog):
     def __init__(self, bot):

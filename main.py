@@ -9,13 +9,11 @@ from typing import List
 #--------------------------Other-----------------------------------
 import os
 import sys
-import json
 import traceback
 from dotenv import load_dotenv
 #------------------------------------------------------------------
 version = "1.0"
 start_time = datetime.now()
-settings = json.load(open("config/settings.json", 'r', encoding='utf8')) # 讀取setting.json
 #-------------------------------------------------------------------
 intents = discord.Intents.default()
 intents.members = True

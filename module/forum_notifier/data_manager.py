@@ -40,7 +40,7 @@ async def save_data(file_path, data):
 def update_data(existing_data, new_threads, board_id):
     """
     比對並更新數據，處理新增和移除的文章
-    new_threads 應包含 `stickthread` 和 `normalthread` 鍵，每個鍵的值為 ID 列表。
+    new_threads 應包含 `stickthread` 和 `normalthread` 鍵，每個鍵的值為 ID 列表
     """
     logger.debug(f"開始比對與更新板塊 {board_id} 的文章數據")
 
