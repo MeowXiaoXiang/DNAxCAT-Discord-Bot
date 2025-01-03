@@ -4,40 +4,67 @@
 
 ## 介紹
 
-DNAxCAT Discord Bot 是一個多功能的 Discord 機器人，提供井字遊戲、音樂播放和論壇通知功能。
+DNAxCAT Discord Bot 是一款多功能 Discord 機器人，專為提升伺服器互動性與管理效率設計，提供從遊戲互動到論壇通知的多樣化功能。
 
-## 安裝
+---
 
-在開始使用這個 Bot 之前，你需要安裝一些必要的 Python 套件。你可以使用以下的指令來安裝這些套件：
+## **功能介紹**
+
+- **頭貼顯示 (avatar.py)**:  
+  顯示伺服器成員的頭像，並根據頭像的平均顏色自動調整嵌入消息的顏色，展現細緻的技術應用。
+
+- **常用連結 (common.py)**:  
+  集合九藏喵窩的官方網站、論壇、動畫 YouTube 頻道與 Wiki 等連結，便於伺服器成員快速查閱相關資訊。
+
+- **論壇通知 (forum_notifier.py)**:  
+  利用爬蟲技術檢查指定論壇的新貼文，並將新文章的標題與連結公告至指定頻道，確保伺服器成員不錯過重要資訊。
+
+- **踩地雷 (minesweeper.py)**:  
+  在 Discord 中進行踩地雷遊戲，利用消息中的隱藏標籤模擬遊戲，但因 Discord 的限制，目前為靜態操作。
+
+- **音樂播放 (music_cog.py)**:  
+  作為 YouTube 音樂播放器，支援播放、暫停、停止與播放清單管理。  
+  - **技術亮點**:  
+    - 使用 `yt-dlp` 下載音樂並存入暫存目錄，離開頻道時自動清理。  
+    - 利用 `ffmpeg` 處理音樂文件並實現播放。  
+
+- **井字遊戲 (tic_tac_toe.py)**:  
+  一款小型井字遊戲，玩家通過點擊表情符號選擇位置，機器人會管理回合並自動判定勝負。
+
+---
+
+## **專案目錄結構**
+
+- **`cogs/`**: 存放主要功能模組。  
+  - `avatar.py`: 頭貼顯示與顏色調整功能。  
+  - `common.py`: 常用連結指令功能模組。  
+  - `forum_notifier.py`: 論壇通知模組，包含爬蟲邏輯。  
+  - `minesweeper.py`: 踩地雷遊戲模組。  
+  - `music_cog.py`: 音樂播放功能模組。  
+  - `tic_tac_toe.py`: 井字遊戲功能模組。  
+
+- **`module/`**: 功能支援模組。  
+  - `forum_notifier/`: 包含爬蟲與資料管理邏輯。  
+  - `music_player/`: 音樂播放的核心邏輯與管理模組。  
+
+- **`config/`**: 配置檔案。  
+  - `settings.json`: 包含論壇通知與機器人參數設定。  
+- **`logs/`**: 日誌檔案目錄，用於記錄執行過程（自動生成）。  
+- **`data/`**: 持久化數據存儲目錄（自動生成）。  
+- **`temp/music/`**: 暫存音樂文件目錄（自動生成）。  
+
+---
+
+## **安裝與使用**
+
+### **安裝必要套件**
+請確保已安裝 Python 3.10 或以上版本，並執行以下指令安裝必要的依賴套件：
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 功能介紹
-
-- `tic_tac_toe`: 這個功能是在 Discord 中進行井字遊戲。玩家使用表情符號進行操作，機器人會管理遊戲狀態和回合，並處理勝負判定。
-- `music`: 這個功能是在 Discord 中作為 YouTube 音樂播放器的功能。
-- `forum_notifier`: 這個功能會定期檢查指定論壇的文章，並在有新文章時發送通知。
-- `avatar`: 這個功能可以顯示目標成員的頭貼。
-- `minesweeper`: 這個功能可以在 Discord 中進行踩地雷遊戲。
-
-## 專案目錄組成
-
-- `cogs/`: 存放機器人功能模組的目錄。
-  - `avatar.py`: 顯示成員頭貼功能模組。
-  - `common.py`: 一些通用功能模組。
-  - `forum_notifier.py`: 論壇通知功能模組。
-  - `minesweeper.py`: 踩地雷遊戲功能模組。
-  - `tic_tac_toe.py`: 井字遊戲功能模組。
-  - `music_player.py`: 音樂播放器，僅支援 Youtube，目前不穩暫時擺放至 `cogs_disabled` 資料夾中存放。
-- `config/setting.json`: 設定檔案，包含機器人的 Discord Bot TOKEN 及其他設定。
-- `module/ffmpeg`: 存放 ffmpeg 相關檔案的目錄。
-- `logs/`: 存放日誌檔案的目錄。
-- `music_downloads/`: 存放下載的音樂檔案的目錄。
-- `tests/`: 存放測試檔案的目錄。
-
-## 設定
+### 所需配置設定
 
 - `config/settings.json` 檔案，包含以下設定：
   - `forum_notifier`: 論壇通知功能的設定。
@@ -49,11 +76,19 @@ pip install -r requirements.txt
   - `DISCORD_BOT_TOKEN`: 設定機器人的 Discord Bot TOKEN。
   - `DEBUG`: 設定是否啟用 DEBUG 模式。
 
-## Docker 用法
+### 使用
+
+- 啟動機器人：
+
+  ```bash
+  python main.py
+  ```
+
+## Docker
 
 你可以使用 Docker 來運行這個專案。以下是 Docker 的使用方法：
 
-1. 建立 Docker 映像：
+1. 建立 Docker 映像（建立前請先設定好 `config/settings.json`）：
 
 ```bash
 docker build -t dnaxcat_discord_bot .
