@@ -57,7 +57,8 @@ DNAxCAT Discord Bot 是一款多功能 Discord 機器人，專為提升伺服器
 
 ## **安裝與使用**
 
-### **安裝必要套件**
+### 安裝必要套件
+
 請確保已安裝 Python 3.10 或以上版本，並執行以下指令安裝必要的依賴套件：
 
 ```bash
@@ -80,9 +81,9 @@ pip install -r requirements.txt
 
 - 啟動機器人：
 
-  ```bash
-  python main.py
-  ```
+    ```bash
+    python main.py
+    ```
 
 ## Docker
 
@@ -90,14 +91,14 @@ pip install -r requirements.txt
 
 1. 建立 Docker 映像（建立前請先設定好 `config/settings.json`）：
 
-```bash
-docker build -t dnaxcat_discord_bot .
-```
+    ```bash
+    docker build -t dnaxcat_discord_bot .
+    ```
 
 2. 運行 Docker 容器：
 
-```bash
-docker run -d --name dnaxcat_discord_bot -e DISCORD_BOT_TOKEN=你的token -e DEBUG=false dnaxcat_discord_bot
-```
+    ```bash
+    docker run -d --name dnaxcat_discord_bot -e DISCORD_BOT_TOKEN=你的token -e DEBUG=false dnaxcat_discord_bot
+    ```
 
-這樣就可以在 Docker 容器中運行 DNAxCAT Discord Bot 了。
+這樣就可以在 Docker 容器中執行 DNAxCAT Discord Bot 了
