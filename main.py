@@ -259,6 +259,7 @@ def set_logger():
         retention='30 days',  # 保存最近 30 天的日誌
         level="INFO",  # 檔案中僅記錄 INFO 級別及以上的日誌
         encoding='UTF-8',
+        compression="gz",
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level} | {message}"
     )
 
