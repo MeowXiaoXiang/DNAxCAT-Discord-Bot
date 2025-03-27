@@ -266,28 +266,28 @@ if __name__ == "__main__":
             return
 
         # 檢查並建立測試資料夾
-        if not os.path.exists('test'):
-            os.makedirs('test')
-            logger.info("已建立 'test' 資料夾")
+        if not os.path.exists('temp'):
+            os.makedirs('temp')
+            logger.info("已建立 'temp' 資料夾")
         else:
-            logger.info("'test' 資料夾已存在")
+            logger.info("'temp' 資料夾已存在")
 
         async with Scraper(forum_settings["base_url"], forum_settings) as scraper:
             thread_ids = await scraper.FetchThreadIDs(forum_settings)
-            with open('test/thread_ids.json', 'w', encoding='utf-8') as f:
+            with open('temp/thread_ids.json', 'w', encoding='utf-8') as f:
                 json.dump(thread_ids, f, ensure_ascii=False, indent=4)
 
             for forum_id, threads in thread_ids.items():
                 # 測試置頂文章
                 for thread_id in threads['stickthread'][:1]:
                     thread_detail = await scraper.FetchThreadDetail(forum_id, thread_id, top_status=True)
-                    with open(f'test/{forum_id}_stickthread_thread_detail.json', 'w', encoding='utf-8') as f:
+                    with open(f'temp/{forum_id}_stickthread_thread_detail.json', 'w', encoding='utf-8') as f:
                         json.dump(thread_detail, f, ensure_ascii=False, indent=4)
 
                 # 測試非置頂文章
                 for thread_id in threads['normalthread'][:1]:
                     thread_detail = await scraper.FetchThreadDetail(forum_id, thread_id, top_status=False)
-                    with open(f'test/{forum_id}_normalthread_thread_detail.json', 'w', encoding='utf-8') as f:
+                    with open(f'temp/{forum_id}_normalthread_thread_detail.json', 'w', encoding='utf-8') as f:
                         json.dump(thread_detail, f, ensure_ascii=False, indent=4)
 
     asyncio.run(main())
