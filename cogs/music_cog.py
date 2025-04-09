@@ -29,7 +29,7 @@ class MusicPlayerCog(commands.Cog):
         self.yt_dlp_manager = YTDLPManager("./temp/music")
         self.embed_manager = EmbedManager()
         self.buttons_view = MusicPlayerButtons(self.button_action_handler)
-        self.player_interaction = None
+        self.player_message = None
         self.playlist_interaction = None
         self.last_yt_dlp_check = None # 上次檢查 yt-dlp 更新的時間戳
         self.update_task = self.update_embed
@@ -74,7 +74,7 @@ class MusicPlayerCog(commands.Cog):
             self.yt_dlp_manager.clear_temp_files()
 
             # 重置與播放相關的狀態
-            self.player_interaction = None
+            self.player_message = None
             self.playlist_interaction = None
 
             logger.info("成功清理資源並重置狀態。")
@@ -93,8 +93,8 @@ class MusicPlayerCog(commands.Cog):
             self.player_controller.is_playing = False
             self.player_controller.current_song = None
             embed = self.embed_manager.error_embed("播放清單中無音樂")
-            if self.player_interaction:
-                await self.player_interaction.edit(embed=embed)
+            if self.player_message:
+                await self.player_message.edit(embed=embed)
             return
 
         # 如果播放清單只有一首
@@ -117,8 +117,8 @@ class MusicPlayerCog(commands.Cog):
                 current_time=current_status.get("current_sec", 0)
             )
             # 確保嵌入訊息更新
-            if self.player_interaction:
-                await self.player_interaction.edit(embed=embed)
+            if self.player_message:
+                await self.player_message.edit(embed=embed)
             return
 
         # 嘗試獲取下一首歌曲
@@ -144,8 +144,8 @@ class MusicPlayerCog(commands.Cog):
             )
 
         # 確保嵌入訊息更新
-        if self.player_interaction:
-            await self.player_interaction.edit(embed=embed)
+        if self.player_message:
+            await self.player_message.edit(embed=embed)
 
     async def check_and_update_yt_dlp(self):
         """
@@ -218,7 +218,8 @@ class MusicPlayerCog(commands.Cog):
             embed = self.embed_manager.playing_embed(song_info, is_looping=False, is_playing=True)
             await self.update_buttons_view()
             await interaction.followup.send(embed=embed, view=self.buttons_view)
-            self.player_interaction = await interaction.original_response()  # 保存 interaction
+            response = await interaction.original_response()
+            self.player_message = await response.channel.fetch_message(response.id)
 
             # 啟動更新任務
             if not self.update_task.is_running():
@@ -525,7 +526,7 @@ class MusicPlayerCog(commands.Cog):
                 current_time=current_status["current_sec"]
             )
             try:
-                await self.player_interaction.edit(embed=embed, view=self.buttons_view)
+                await self.player_message.edit(embed=embed, view=self.buttons_view)
                 logger.debug("更新播放嵌入成功")
             except Exception as e:
                 logger.error(f"更新播放嵌入時發生錯誤：{e}")
