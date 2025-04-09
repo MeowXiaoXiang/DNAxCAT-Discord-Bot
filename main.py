@@ -264,8 +264,8 @@ def set_logger():
     )
 
 if __name__ == '__main__':
-    set_logger()
     load_dotenv()
+    set_logger()
     TOKEN = os.getenv("DISCORD_BOT_TOKEN")
     if not TOKEN:
         logger.critical("DISCORD_BOT_TOKEN 未設置，請檢查 .env 文件或環境變數配置！")

@@ -15,6 +15,9 @@ from module.music_player import (
 #--------------------------Other-----------------------------------
 import asyncio
 from loguru import logger
+import time
+import shutil
+import subprocess
 #------------------------------------------------------------------
 
 class MusicPlayerCog(commands.Cog):
@@ -28,6 +31,7 @@ class MusicPlayerCog(commands.Cog):
         self.buttons_view = MusicPlayerButtons(self.button_action_handler)
         self.player_interaction = None
         self.playlist_interaction = None
+        self.last_yt_dlp_check = None # 上次檢查 yt-dlp 更新的時間戳
         self.update_task = self.update_embed
 
     async def cog_load(self):
@@ -61,6 +65,11 @@ class MusicPlayerCog(commands.Cog):
             if self.playlist_manager:
                 self.playlist_manager.clear()
 
+            # 停止嵌入更新任務
+            if self.update_task.is_running():
+                self.update_task.stop()
+                logger.info("已停止嵌入更新任務")
+
             # 清空下載目錄的暫存檔案
             self.yt_dlp_manager.clear_temp_files()
 
@@ -71,7 +80,6 @@ class MusicPlayerCog(commands.Cog):
             logger.info("成功清理資源並重置狀態。")
         except Exception as e:
             logger.error(f"清理資源時發生錯誤：{e}")
-
 
     async def on_song_end(self):
         """
@@ -101,12 +109,14 @@ class MusicPlayerCog(commands.Cog):
                 self.player_controller.is_playing = False
 
             # 無論是否循環，生成嵌入
+            current_status = self.player_controller.get_current_status()
             embed = self.embed_manager.playing_embed(
                 current_song,
                 is_looping=self.playlist_manager.loop,
                 is_playing=self.playlist_manager.loop,  # 循環播放時狀態為播放
-                current_time=self.player_controller.get_current_status()["current_sec"]
+                current_time=current_status.get("current_sec", 0)
             )
+            # 確保嵌入訊息更新
             if self.player_interaction:
                 await self.player_interaction.edit(embed=embed)
             return
@@ -125,22 +135,46 @@ class MusicPlayerCog(commands.Cog):
         else:  # 非循環模式下，保持播放器狀態不動
             logger.debug("播放到最後一首，未啟用循環模式")
             self.player_controller.is_playing = False
+            current_status = self.player_controller.get_current_status()
             embed = self.embed_manager.playing_embed(
                 self.playlist_manager.get_current_song(),
                 is_looping=self.playlist_manager.loop,
                 is_playing=False,
-                current_time=self.player_controller.get_current_status()["current_sec"]
+                current_time = current_status.get("current_sec", 0)
             )
 
         # 確保嵌入訊息更新
         if self.player_interaction:
             await self.player_interaction.edit(embed=embed)
 
+    async def check_and_update_yt_dlp(self):
+        """
+        檢查 yt-dlp 是否有更新，並自動更新至最新版（若有需要）
+        """
+        try:
+            yt_dlp_path = shutil.which("yt-dlp")
+            if yt_dlp_path:
+                logger.info("[YT-DLP] 檢查 yt-dlp 是否需要更新...")
+                result = subprocess.run(
+                    ["yt-dlp", "-U"],  # 自動更新
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                logger.debug(f"[YT-DLP] 更新輸出：\n{result.stdout.strip()}")
+            else:
+                logger.warning("[YT-DLP] 找不到 yt-dlp，可執行檔未加入 PATH 或尚未安裝。")
+        except Exception as e:
+            logger.error(f"[YT-DLP] 檢查或更新 yt-dlp 時發生錯誤：{e}")
+
     @discord.app_commands.command(name="音樂-啟動播放器", description="啟動音樂播放器並播放指定的 URL")
     @discord.app_commands.rename(url="youtube網址")
     @discord.app_commands.describe(url="YouTube 影片或播放清單的網址")
     async def start_player(self, interaction: discord.Interaction, url: str):
         await interaction.response.defer()
+        if time.time() - (self.last_yt_dlp_check or 0) > 86400:  # 每 24 小時檢查一次更新
+            await self.check_and_update_yt_dlp() # 檢查 yt-dlp 更新
+            self.last_yt_dlp_check = time.time()
 
         # 檢查 FFmpeg 初始化
         if not self.ffmpeg_path or not self.player_controller:
@@ -166,7 +200,7 @@ class MusicPlayerCog(commands.Cog):
 
             # 新增歌曲到播放清單
             song_info = self.playlist_manager.add(song_info)
-
+            
             # 嘗試加入語音頻道
             try:
                 channel = interaction.user.voice.channel
@@ -215,6 +249,12 @@ class MusicPlayerCog(commands.Cog):
             # 新增音樂到播放清單
             song_info = self.playlist_manager.add(song_info)
             embed = self.embed_manager.added_song_embed(song_info)
+
+            # 🆕 若已播完最後一首又加新歌，就自動切到新加的那一首
+            if not self.player_controller.is_playing and not self.playlist_manager.loop:
+                if self.playlist_manager.current_index >= len(self.playlist_manager.playlist) - 2:
+                    self.playlist_manager.current_index += 1
+                    logger.debug(f"播放已結束，自動將 current_index 移至新歌曲：{self.playlist_manager.current_index}")
 
             # 更新按鈕狀態
             await self.update_buttons_view()
@@ -373,20 +413,16 @@ class MusicPlayerCog(commands.Cog):
 
     async def button_action_handler(self, interaction: discord.Interaction, action: str):
         try:
-            # 獲取當前歌曲資訊
-            current_song = self.playlist_manager.playlist[self.playlist_manager.current_index]
+            current_song = self.playlist_manager.get_current_song()
             current_status = self.player_controller.get_current_status()
             is_playing = current_status["is_playing"]
 
-            # 按鈕行為處理
-            # 播放/暫停按鈕
             if action == "play_pause":
                 logger.debug(f"按下播放/暫停按鈕，當前播放狀態：{is_playing}")
                 if self.player_controller.is_paused:
                     await self.player_controller.resume()
                     is_playing = True
                 elif not self.player_controller.is_playing:
-                    # 停止後嘗試重新播放
                     next_song = self.playlist_manager.get_current_song()
                     if next_song:
                         logger.info(f"重新播放: {next_song['title']}")
@@ -400,7 +436,7 @@ class MusicPlayerCog(commands.Cog):
                 else:
                     await self.player_controller.pause()
                     is_playing = False
-            # 下一首按鈕
+
             elif action == "next":
                 logger.debug("按下下一首按鈕")
                 await self.player_controller.stop()
@@ -410,25 +446,28 @@ class MusicPlayerCog(commands.Cog):
                     await self.player_controller.play_song(next_song["id"])
                     current_song = next_song
                     is_playing = True
-            # 上一首按鈕
+                else:
+                    current_song = self.playlist_manager.get_current_song()
+
             elif action == "previous":
                 logger.debug("按下上一首按鈕")
-                self.playlist_manager.current_index -= 2
-                # 因為我只有寫get_next，懶得搞get_previous了，乾脆-2後再+1就剛好是上一首了對吧XD
-                prev_song = self.playlist_manager.get_next_song()
+                await self.player_controller.stop()
+                prev_song = self.playlist_manager.get_previous_song()
                 logger.debug(f"上一首歌曲：{prev_song}")
                 if prev_song:
-                    await self.player_controller.stop()
                     await self.player_controller.play_song(prev_song["id"])
                     current_song = prev_song
                     is_playing = True
-            # 循環開關按鈕
+                else:
+                    current_song = self.playlist_manager.get_current_song()
+
             elif action == "loop":
                 logger.debug("按下循環開關按鈕")
-                self.playlist_manager.loop = not self.playlist_manager.loop  # 切換循環模式
+                self.playlist_manager.loop = not self.playlist_manager.loop
+                current_song = self.playlist_manager.get_current_song()
                 is_playing = current_status["is_playing"]
                 logger.debug(f"循環模式：{self.playlist_manager.loop}")
-            # 離開按鈕
+
             elif action == "leave":
                 logger.debug("按下離開按鈕")
                 await self.cleanup_resources()
@@ -445,7 +484,7 @@ class MusicPlayerCog(commands.Cog):
             )
             await self.buttons_view.update_buttons({
                 "loop": {"style": discord.ButtonStyle.green if self.playlist_manager.loop else discord.ButtonStyle.grey}
-            })  # 啟用時 loop 按鈕為綠色，反之灰色
+            })
             await interaction.edit_original_response(embed=embed, view=self.buttons_view)
 
         except Exception as e:
@@ -463,9 +502,10 @@ class MusicPlayerCog(commands.Cog):
         # 定義按鈕更新狀態
         button_updates = {
             "play_pause": {"disabled": is_empty},
-            "next": {"disabled": is_single or is_empty},  # 單首或清單空則禁用
-            "previous": {"disabled": is_single or is_empty}  # 單首或清單空則禁用
+            "next": {"disabled": is_single or self.playlist_manager.get_next_song() is None},
+            "previous": {"disabled": is_single or self.playlist_manager.get_previous_song() is None}
         }
+
 
         await self.buttons_view.update_buttons(button_updates)
 
@@ -473,7 +513,11 @@ class MusicPlayerCog(commands.Cog):
     async def update_embed(self):
         if self.player_controller and self.player_controller.is_playing:
             current_status = self.player_controller.get_current_status()
-            current_song = self.playlist_manager.playlist[self.playlist_manager.current_index]
+            current_song = self.playlist_manager.get_current_song()
+            if not current_song:
+                logger.warning("更新嵌入時發現目前無歌曲，跳過嵌入更新")
+                return
+
             embed = self.embed_manager.playing_embed(
                 current_song,
                 is_looping=self.playlist_manager.loop,
