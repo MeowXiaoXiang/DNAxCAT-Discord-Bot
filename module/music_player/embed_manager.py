@@ -1,7 +1,7 @@
 import discord
 from loguru import logger
 
-class EmbedManager:
+class MusicEmbedManager:
     """
     管理各種情境下的 Discord Embed 生成，並記錄操作日誌
     """
@@ -18,7 +18,7 @@ class EmbedManager:
         :return: discord.Embed
         """
         try:
-            logger.debug("生成播放中的嵌入訊息")
+            logger.debug(f"生成播放嵌入: {song_info.get('title', '未知')} 狀態: {'播放' if is_playing else '暫停'} 時間: {current_time}")
             status = "正在播放 ▶️" if is_playing else "已暫停 ⏸️"
             progress_bar = self.create_progress_bar(current_time, song_info['duration'])
 
@@ -55,17 +55,14 @@ class EmbedManager:
     # ---------------------
     # 清單相關嵌入
     # ---------------------
-    def playlist_embed(self, playlist_page: dict) -> discord.Embed:
+    def playlist_embed(self, playlist_page: dict) -> 'discord.Embed':
         """
         生成播放清單嵌入訊息
-
-        Args:
-            playlist_page (dict): 包含分頁資訊的字典，來自 get_playlist_paginated
-
-        Returns:
-            discord.Embed: 格式化的嵌入訊息
+        :param playlist_page: dict, 來自 get_playlist_paginated
+        :return: discord.Embed
         """
         try:
+            logger.debug(f"生成播放清單嵌入，第 {playlist_page.get('current_page', '?')}/{playlist_page.get('total_pages', '?')} 頁")
             # 初始化 Embed
             embed = discord.Embed(
                 title="🎶 播放清單",
@@ -92,7 +89,6 @@ class EmbedManager:
             logger.error(f"生成播放清單嵌入時發生錯誤: {e}")
             return self.error_embed("無法生成播放清單嵌入")
 
-
     # ---------------------
     # 操作結果嵌入
     # ---------------------
@@ -103,7 +99,7 @@ class EmbedManager:
         :return: discord.Embed
         """
         try:
-            logger.debug("生成新增歌曲嵌入訊息")
+            logger.info(f"生成新增歌曲嵌入: {song_info.get('title', '未知')}")
             embed = discord.Embed(
                 title="✅ 已新增歌曲",
                 description=f"[{song_info['title']}]({song_info['url']}) 已新增至播放清單",
@@ -124,7 +120,7 @@ class EmbedManager:
         :return: discord.Embed
         """
         try:
-            logger.debug("生成移除歌曲嵌入訊息")
+            logger.info(f"生成移除歌曲嵌入: {song_info.get('title', '未知')}")
             embed = discord.Embed(
                 title="🗑️ 已移除歌曲",
                 description=f"[{song_info['title']}]({song_info['url']}) 已從播放清單移除",
@@ -142,7 +138,7 @@ class EmbedManager:
         :return: discord.Embed
         """
         try:
-            logger.debug("生成清空播放清單嵌入訊息")
+            logger.info("生成清空播放清單嵌入")
             embed = discord.Embed(
                 title="🗑️ 播放清單已清空",
                 description="所有歌曲已從播放清單中移除",
@@ -162,6 +158,7 @@ class EmbedManager:
         :param error_message: str, 錯誤訊息
         :return: discord.Embed
         """
+        logger.warning(f"生成錯誤嵌入: {error_message}")
         embed = discord.Embed(
             title="❌ 錯誤",
             description=error_message,
@@ -197,7 +194,7 @@ if __name__ == "__main__":
         }
     ]
 
-    embed_manager = EmbedManager()
+    embed_manager = MusicEmbedManager()
 
     def print_embed_simulation(title, embed):
         print(f"\n{'-' * 50}")

@@ -11,7 +11,7 @@ DNAxCAT Discord Bot 是一款多功能 Discord 機器人，專為提升伺服器
 ## **功能介紹**
 
 - **頭貼顯示 (avatar.py)**:  
-  顯示伺服器成員的頭像，並根據頭像的平均顏色自動調整嵌入消息的顏色，展現細緻的技術應用。
+  顯示伺服器成員的頭像，並根據頭像的平均顏色自動調整嵌入消息的顏色。
 
 - **常用連結 (common.py)**:  
   集合九藏喵窩的官方網站、論壇、動畫 YouTube 頻道與 Wiki 等連結，便於伺服器成員快速查閱相關資訊。
@@ -22,14 +22,14 @@ DNAxCAT Discord Bot 是一款多功能 Discord 機器人，專為提升伺服器
 - **踩地雷 (minesweeper.py)**:  
   在 Discord 中進行踩地雷遊戲，利用消息中的隱藏標籤模擬遊戲，但因 Discord 的限制，目前為靜態操作。
 
-- **音樂播放 (music_cog.py)** (穩定性待測試) :  
-  作為 YouTube 音樂播放器，支援播放、暫停、停止與播放清單管理。  
+- **音樂播放 (music_cog.py)**:  
+  作為 YouTube 音樂播放器，支援播放、暫停、停止與播放清單管理，但不支援將Youtube撥放清單直接放入，若直接放入的話只會播放第一首。 
   - **使用的方案**:  
     - 使用 `yt-dlp` 下載音樂並存入暫存目錄，離開頻道時自動清理。  
     - 利用 `ffmpeg` 處理音樂文件並實現播放。  
 
 - **井字遊戲 (tic_tac_toe.py)**:  
-  一款小型井字遊戲，玩家通過點擊表情符號選擇位置，機器人會管理回合並自動判定勝負。
+  一款小型井字遊戲，基本上就是OOXX小遊戲，玩家通過點擊表情符號選擇位置，機器人會管理回合並自動判定勝負。
 
 ---
 
@@ -68,14 +68,15 @@ pip install -r requirements.txt
 ### 所需配置設定
 
 - `config/settings.json` 檔案，包含以下設定：
+  - `DEBUG`: 是否啟用 DEBUG 模式（**已移至此處設定**，不再從 .env 讀取）。
   - `forum_notifier`: 論壇通知功能的設定。
     - `channel_id`: 發送通知的頻道 ID。
     - `interval_minutes`: 檢查新文章的間隔時間（分鐘）。
     - `base_url`: 論壇的基礎 URL。
     - `forums`: 包含各個論壇的 URL 和顏色設定。
-- `.env` 檔案，包含以下設定：
+- `.env` 檔案，**只需**包含：
   - `DISCORD_BOT_TOKEN`: 設定機器人的 Discord Bot TOKEN。
-  - `DEBUG`: 設定是否啟用 DEBUG 模式。
+
 
 ### 使用
 
@@ -85,11 +86,28 @@ pip install -r requirements.txt
     python main.py
     ```
 
-## Docker
+## Docker 與 Compose
 
-你可以使用 Docker 來運行這個專案。以下是 Docker 的使用方法：
+你可以使用 Docker 或 Docker Compose 來運行這個專案。
 
-1. 建立 Docker 映像（建立前請先設定好 `config/settings.json`）：
+### 使用 Docker Compose（推薦）
+
+1. 請先設定好 `config/settings.json` 與 `.env`。
+2. 直接啟動：
+
+    ```bash
+    docker compose up -d
+    ```
+
+3. 停止服務：
+
+    ```bash
+    docker compose down
+    ```
+
+### 傳統 Docker 指令
+
+1. 建立 Docker 映像：
 
     ```bash
     docker build -t dnaxcat_discord_bot .
@@ -98,7 +116,9 @@ pip install -r requirements.txt
 2. 運行 Docker 容器：
 
     ```bash
-    docker run -d --name dnaxcat_discord_bot -e DISCORD_BOT_TOKEN=你的token -e DEBUG=false dnaxcat_discord_bot
+    docker run -d --name dnaxcat_discord_bot -e DISCORD_BOT_TOKEN=你的token dnaxcat_discord_bot
     ```
 
-這樣就可以在 Docker 容器中執行 DNAxCAT Discord Bot 了
+---
+
+這樣就可以在 Docker 或 Docker Compose 容器中執行 DNAxCAT Discord Bot 了

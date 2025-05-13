@@ -5,8 +5,8 @@ from loguru import logger
 class MusicPlayerButtons(View):
     def __init__(self, button_handler_callback):
         """
-        初始化按鈕視圖
-        :param button_handler_callback: 回調函數，用於處理按鈕操作
+        初始化音樂播放器按鈕 View
+        :param button_handler_callback: 處理按鈕事件的 callback
         """
         super().__init__(timeout=None)
         self.button_handler_callback = button_handler_callback
@@ -34,17 +34,14 @@ class MusicPlayerButtons(View):
 
     async def button_callback(self, interaction: Interaction):
         """
-        統一處理按鈕 callback，根據按鈕的 custom_id 傳遞動作
+        處理所有音樂控制按鈕的 callback，並記錄操作
         """
         await interaction.response.defer()
-
-        # 從按鈕本身的 `custom_id` 取得操作
         button_action = interaction.data.get("custom_id")
         if not button_action:
             logger.error("[MusicPlayerButtons] 按鈕回調中找不到 custom_id")
             return
-
-        # 呼叫外部傳入的回調函數
+        logger.info(f"[MusicPlayerButtons] 收到按鈕事件: {button_action}")
         if self.button_handler_callback:
             try:
                 await self.button_handler_callback(interaction, button_action)
@@ -55,25 +52,19 @@ class MusicPlayerButtons(View):
 
     async def update_buttons(self, updates: dict):
         """
-        批量更新按鈕屬性
-        :param updates: 包含更新信息的字典，格式如下：
-        {
-            "button_id1": {"label": "新標籤", "style": ButtonStyle.green, "disabled": True},
-            "button_id2": {"emoji": "⏯️", "disabled": False}
-        }
+        批量更新按鈕屬性，並記錄更新內容
+        :param updates: dict, 按鈕狀態更新資訊
         """
         if not isinstance(updates, dict):
             logger.error("[MusicPlayerButtons] 傳入的 updates 參數格式錯誤，應該是字典格式")
             raise ValueError("updates 必須是字典格式！")
-
+        logger.debug(f"[MusicPlayerButtons] 更新按鈕狀態: {updates}")
         for child in self.children:
             if isinstance(child, Button) and child.custom_id in updates:
                 update = updates[child.custom_id]
                 if not isinstance(update, dict):
                     logger.error(f"[MusicPlayerButtons] 按鈕 {child.custom_id} 的更新數據格式錯誤：{update}")
                     raise ValueError(f"按鈕 {child.custom_id} 的更新數據必須是字典格式！")
-
-                # 檢查各自的屬性並更新
                 try:
                     if "label" in update and isinstance(update["label"], str):
                         child.label = update["label"]
@@ -89,7 +80,7 @@ class MusicPlayerButtons(View):
 
     async def remove_all_buttons(self):
         """
-        移除所有按鈕
+        移除所有按鈕，並記錄操作
         """
         logger.info("[MusicPlayerButtons] 正在移除所有按鈕...")
         self.clear_items()
@@ -97,10 +88,10 @@ class MusicPlayerButtons(View):
 class PaginationButtons(View):
     def __init__(self, button_handler_callback, timeout_callback=None, timeout_seconds=600):
         """
-        初始化翻頁按鈕視圖，支援 timeout 和回調處理
-        :param button_handler_callback: 回調函數，用於處理按鈕操作
-        :param timeout_callback: 超時回調函數，默認為 None
-        :param timeout_seconds: 超時的時間（秒），預設 600 秒（10 分鐘）
+        初始化翻頁按鈕 View
+        :param button_handler_callback: 處理按鈕事件的 callback
+        :param timeout_callback: 超時回調函數
+        :param timeout_seconds: 超時秒數
         """
         super().__init__(timeout=timeout_seconds)
         self.button_handler_callback = button_handler_callback
@@ -120,17 +111,14 @@ class PaginationButtons(View):
 
     async def button_callback(self, interaction: Interaction):
         """
-        統一處理按鈕 callback，根據按鈕的 custom_id 傳遞動作
+        處理所有翻頁按鈕的 callback，並記錄操作
         """
         await interaction.response.defer()
-
-        # 從按鈕本身的 `custom_id` 取得操作
         button_action = interaction.data.get("custom_id")
         if not button_action:
             logger.error("[PaginationButtons] 按鈕回調中找不到 custom_id")
             return
-
-        # 呼叫外部傳入的回調函數
+        logger.info(f"[PaginationButtons] 收到按鈕事件: {button_action}")
         if self.button_handler_callback:
             try:
                 await self.button_handler_callback(interaction, button_action)
@@ -141,7 +129,7 @@ class PaginationButtons(View):
 
     async def on_timeout(self):
         """
-        處理超時事件，通知外部回調函數並清除按鈕
+        處理按鈕超時事件，並記錄操作
         """
         logger.info("[PaginationButtons] 已超時，正在清除按鈕...")
         if self.timeout_callback:
@@ -149,29 +137,23 @@ class PaginationButtons(View):
                 await self.timeout_callback()
             except Exception as e:
                 logger.exception(f"[PaginationButtons] 處理超時回調時發生錯誤：{e}")
-        self.stop()  # 停止view本身
+        self.stop()
 
     async def update_buttons(self, updates: dict):
         """
-        批量更新按鈕屬性
-        :param updates: 包含更新信息的字典，格式如下：
-        {
-            "previous_page": {"disabled": True},
-            "next_page": {"disabled": False}
-        }
+        批量更新翻頁按鈕屬性，並記錄更新內容
+        :param updates: dict, 按鈕狀態更新資訊
         """
         if not isinstance(updates, dict):
             logger.error("[PaginationButtons] 傳入的 updates 參數格式錯誤，應該是字典格式")
             raise ValueError("updates 必須是字典格式！")
-
+        logger.debug(f"[PaginationButtons] 更新按鈕狀態: {updates}")
         for child in self.children:
             if isinstance(child, Button) and child.custom_id in updates:
                 update = updates[child.custom_id]
                 if not isinstance(update, dict):
                     logger.error(f"[PaginationButtons] 按鈕 {child.custom_id} 的更新數據格式錯誤：{update}")
                     raise ValueError(f"按鈕 {child.custom_id} 的更新數據必須是字典格式！")
-
-                # 檢查各自的屬性並更新
                 try:
                     if "label" in update and isinstance(update["label"], str):
                         child.label = update["label"]
@@ -187,7 +169,7 @@ class PaginationButtons(View):
 
     async def remove_all_buttons(self):
         """
-        移除所有按鈕
+        移除所有翻頁按鈕，並記錄操作
         """
         logger.info("[PaginationButtons] 正在移除所有按鈕...")
         self.clear_items()
