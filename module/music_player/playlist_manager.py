@@ -182,9 +182,10 @@ class MusicPlaylistManager:
 if __name__ == "__main__":
     manager = MusicPlaylistManager()
 
-    # 新增 5 首歌曲
-    for i in range(5):
-        manager.add({
+    # 新增 11 首歌曲
+    print("\n=== 添加11首歌曲 ===")
+    for i in range(11):
+        song = manager.add({
             "id": f"id_{i+1}",
             "title": f"Song {i+1}",
             "uploader": f"Uploader {i+1}",
@@ -193,12 +194,54 @@ if __name__ == "__main__":
             "url": f"http://example.com/song{i+1}",
             "thumbnail": f"http://example.com/thumbnail{i+1}.jpg"
         })
+        print(f"已添加歌曲 {song['index']}: {song['title']}")
+    
+    print(f"播放清單總共有 {len(manager.playlist)} 首歌曲")
 
-    # 測試分頁
-    print("=== 分頁測試 ===")
-    print(manager.get_playlist_paginated(page=1, per_page=3))
-    print(manager.get_playlist_paginated(page=2, per_page=3))
-    print(manager.get_playlist_paginated(page=3, per_page=3))
+    # 測試分頁（per_page=5）
+    print("\n=== 分頁測試 (per_page=5) ===")
+    page1 = manager.get_playlist_paginated(page=1, per_page=5)
+    print(f"第1頁: 當前頁={page1['current_page']}, 總頁數={page1['total_pages']}, 歌曲數={len(page1['songs'])}")
+    print("第1頁歌曲:")
+    for s in page1['songs']:
+        print(f"  {s['index']}. {s['title']}")
+    
+    page2 = manager.get_playlist_paginated(page=2, per_page=5)
+    print(f"第2頁: 當前頁={page2['current_page']}, 總頁數={page2['total_pages']}, 歌曲數={len(page2['songs'])}")
+    print("第2頁歌曲:")
+    for s in page2['songs']:
+        print(f"  {s['index']}. {s['title']}")
+    
+    page3 = manager.get_playlist_paginated(page=3, per_page=5)
+    print(f"第3頁: 當前頁={page3['current_page']}, 總頁數={page3['total_pages']}, 歌曲數={len(page3['songs'])}")
+    print("第3頁歌曲:")
+    for s in page3['songs']:
+        print(f"  {s['index']}. {s['title']}")
+    
+    # 測試頁碼邊界
+    print("\n=== 頁碼邊界測試 ===")
+    page0 = manager.get_playlist_paginated(page=0, per_page=5)  # 應自動修正為頁碼1
+    print(f"頁碼0: 實際返回頁碼={page0['current_page']}")
+    
+    page99 = manager.get_playlist_paginated(page=99, per_page=5)  # 應自動修正為最後一頁
+    print(f"頁碼99: 實際返回頁碼={page99['current_page']}")
+    
+    # 模擬翻頁操作
+    print("\n=== 模擬翻頁操作 ===")
+    # 從頁碼1開始，連續點擊下一頁
+    current_page = 1
+    for i in range(4):  # 應該最多到頁碼3然後停止
+        new_page = current_page + 1
+        result = manager.get_playlist_paginated(page=new_page, per_page=5)
+        print(f"從頁碼{current_page}點擊下一頁: 請求頁碼={new_page}, 實際返回頁碼={result['current_page']}")
+        current_page = result['current_page']
+    
+    # 從最後一頁開始，連續點擊上一頁
+    for i in range(4):  # 應該最多到頁碼1然後停止
+        new_page = current_page - 1
+        result = manager.get_playlist_paginated(page=new_page, per_page=5)
+        print(f"從頁碼{current_page}點擊上一頁: 請求頁碼={new_page}, 實際返回頁碼={result['current_page']}")
+        current_page = result['current_page']
 
     # 測試播放切換
     print("\n=== 播放切換測試 ===")

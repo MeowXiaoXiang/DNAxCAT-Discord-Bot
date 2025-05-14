@@ -6,13 +6,24 @@ from concurrent.futures import ThreadPoolExecutor
 from loguru import logger
 
 class YTDLPDownloader:
-    def __init__(self, download_folder: str):
+    def __init__(self, download_folder: str, ffmpeg_path: str = None):
         """
         初始化 YTDLPDownloader，負責處理下載和提取
         :param download_folder: str, 下載資料夾路徑
+        :param ffmpeg_path: str, FFmpeg 執行檔路徑
         """
         self.download_folder = download_folder
         os.makedirs(self.download_folder, exist_ok=True)
+        
+        # 檢查 FFmpeg 路徑
+        self.ffmpeg_path = ffmpeg_path
+        if self.ffmpeg_path is None:
+            logger.error("缺少 FFmpeg 路徑配置")
+            raise ValueError("必須提供 FFmpeg 路徑才能轉換為 Opus 格式")
+        if not os.path.exists(self.ffmpeg_path):
+            logger.error(f"FFmpeg 不存在於指定路徑: {self.ffmpeg_path}")
+            raise FileNotFoundError(f"FFmpeg 不存在於指定路徑: {self.ffmpeg_path}")
+            
         logger.info(f"YTDLPDownloader 初始化，下載資料夾: {self.download_folder}")
 
     def _run_yt_dlp_with_progress(self, args):
@@ -43,6 +54,59 @@ class YTDLPDownloader:
         except Exception as e:
             logger.error(f"執行 yt-dlp 時發生錯誤：{e}")
             return False
+            
+    def _convert_to_opus(self, input_file: str):
+        """
+        將下載的檔案轉換為高品質 Opus 格式
+        :param input_file: 輸入檔案路徑
+        :return: 輸出檔案路徑或 None (失敗時)
+        """
+        try:
+            # 生成輸出檔案路徑 (替換副檔名為 .opus)
+            file_id = os.path.splitext(os.path.basename(input_file))[0]
+            output_file = os.path.join(self.download_folder, f"{file_id}.opus")
+            
+            logger.info(f"轉換音訊檔案為 Opus 格式: {input_file} -> {output_file}")
+            
+            # 啟動一個新的 subprocess 進行轉換 (避免 GIL 限制)
+            args = [
+                self.ffmpeg_path,
+                "-i", input_file,
+                "-c:a", "libopus",
+                "-b:a", "192k",
+                "-vbr", "on",
+                "-application", "audio",
+                "-ar", "48000",
+                "-ac", "2",
+                "-loglevel", "warning",
+                output_file
+            ]
+            
+            process = subprocess.Popen(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            # 等待轉換完成
+            stdout, stderr = process.communicate()
+            
+            if process.returncode != 0:
+                logger.error(f"FFmpeg 轉換失敗: {stderr}")
+                return None
+                
+            # 刪除原始檔案
+            try:
+                os.remove(input_file)
+                logger.debug(f"已刪除原始音訊檔案: {input_file}")
+            except Exception as e:
+                logger.warning(f"刪除原始檔案失敗: {e}")
+                
+            return output_file
+        except Exception as e:
+            logger.error(f"轉換 Opus 格式時發生錯誤: {e}")
+            return None
 
     def extract_info(self, url: str):
         """
@@ -90,9 +154,9 @@ class YTDLPDownloader:
 
     def download(self, url: str):
         """
-        使用 subprocess 下載影片，支援下載進度顯示
+        使用 subprocess 下載影片並轉換為 Opus 格式
         :param url: str, 影片網址
-        :return: (dict, str) or (None, None)
+        :return: (dict, str) or (None, None) - 影片資訊和 Opus 檔案路徑
         """
         try:
             logger.info(f"開始下載影片: {url}")
@@ -101,7 +165,11 @@ class YTDLPDownloader:
             if not info or not info.get("id"):
                 logger.error("無法取得影片資訊或 id")
                 return None, None
+                
+            # 設定下載輸出範本
             output_template = os.path.join(self.download_folder, "%s.%%(ext)s" % info["id"])
+            
+            # 下載最佳音訊格式
             args = [
                 "yt-dlp",
                 "--format", "bestaudio/best",
@@ -109,22 +177,32 @@ class YTDLPDownloader:
                 "--no-warnings",
                 info["url"],
             ]
+            
             success = self._run_yt_dlp_with_progress(args)
-            if success:
-                logger.debug("下載成功，嘗試提取下載的影片資訊...")
-                # 這裡直接回傳 info，因為已經是第一首
-                downloaded_files = os.listdir(self.download_folder)
-                for file in downloaded_files:
-                    logger.debug(f"下載資料夾內的檔案: {file}")
-                    if file.startswith(info["id"]):
-                        filepath = os.path.join(self.download_folder, file)
-                        logger.info(f"實際下載的檔案路徑：{filepath}")
-                        return info, filepath
-                logger.error("未找到匹配的下載檔案！檢查下載資料夾")
-                return None, None
-            else:
+            if not success:
                 logger.error("yt-dlp 執行失敗")
                 return None, None
+                
+            # 查找下載的檔案
+            downloaded_file = None
+            for file in os.listdir(self.download_folder):
+                if file.startswith(info["id"]) and not file.endswith(".opus"):
+                    downloaded_file = os.path.join(self.download_folder, file)
+                    logger.info(f"找到下載的原始檔案: {downloaded_file}")
+                    break
+                    
+            if not downloaded_file:
+                logger.error("找不到下載的檔案")
+                return None, None
+                
+            # 轉換為 Opus 格式
+            opus_file = self._convert_to_opus(downloaded_file)
+            if not opus_file:
+                logger.error("轉換為 Opus 格式失敗")
+                return None, None
+                
+            logger.info(f"成功下載並轉換為 Opus 格式: {opus_file}")
+            return info, opus_file
         except Exception as e:
             logger.error(f"下載歌曲時發生錯誤：{e}")
             return None, None
@@ -168,7 +246,9 @@ class YTDLPDownloader:
 # 測試模組
 if __name__ == "__main__":
     async def test():
-        yt_manager = YTDLPDownloader("./temp/music")
+        # 需要提供 ffmpeg 路徑
+        ffmpeg_path = input("請輸入 FFmpeg 執行檔路徑: ")
+        yt_manager = YTDLPDownloader("./temp/music", ffmpeg_path)
         url = input("請輸入 YouTube 的連結: ")
 
         print("\n提取資訊:")
