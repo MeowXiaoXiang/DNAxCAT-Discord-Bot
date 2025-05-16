@@ -41,13 +41,26 @@ class MusicPlaylistManager:
         if not isinstance(index, int) or index < 1:
             logger.error(f"移除歌曲失敗，index 非正整數: {index}")
             raise ValueError("歌曲編號必須是正整數")
+            
         # 找出要移除的歌曲在 list 的位置
         remove_pos = next((i for i, song in enumerate(self.playlist) if song["index"] == index), None)
         if remove_pos is None:
             logger.warning(f"移除歌曲失敗，找不到 index={index} 的歌曲")
+            # 嘗試檢查是否為索引錯誤 - 清單中最大的索引
+            max_index = max([song.get("index", 0) for song in self.playlist], default=0)
+            logger.info(f"當前最大索引為: {max_index}, 嘗試移除的索引: {index}")
+            
+            # 如果清單非空但找不到指定索引，可能是索引已變化，嘗試通過位置找到最接近的
+            if self.playlist and abs(index - max_index) < 5:  # 如果索引差距不大
+                closest_pos = min(len(self.playlist)-1, max(0, index-1))  # 保證在清單範圍內
+                logger.warning(f"嘗試移除最接近的位置: {closest_pos}, 對應索引: {self.playlist[closest_pos].get('index') if closest_pos < len(self.playlist) else 'N/A'}")
+                return self.remove(self.playlist[closest_pos]["index"])
+                
             return self.playlist
+            
         removed_song = self.playlist.pop(remove_pos)
         logger.info(f"已移除歌曲: {removed_song['title']} (ID: {removed_song['id']})，剩餘 {len(self.playlist)} 首")
+        
         # 修正 current_index
         if remove_pos < self.current_index:
             self.current_index -= 1
@@ -59,6 +72,7 @@ class MusicPlaylistManager:
         if not self.playlist:
             self.current_index = -1
             logger.debug("播放清單已清空，current_index 設為 -1")
+            
         self._reindex_playlist()
         return self.playlist
 
@@ -178,6 +192,51 @@ class MusicPlaylistManager:
             "total_pages": total_pages,
             "total_songs": total_songs
         }
+
+    def add_many(self, songs: list[dict]) -> list[dict]:
+        """
+        批次新增多首歌曲到播放清單
+        :param songs: list[dict], 每首歌必須包含必要欄位
+        :return: list[dict], 每首歌加入後的資訊（含 index）
+        """
+        added = []
+        for song in songs:
+            added.append(self.add(song))
+        return added
+
+    def remove_by_id(self, song_id: str) -> list:
+        """
+        通過歌曲 ID 移除歌曲，比 index 更安全
+        :param song_id: str, 歌曲 ID
+        :return: list, 移除後的播放清單
+        """
+        if not song_id:
+            logger.error(f"移除歌曲失敗，song_id 為空")
+            return self.playlist
+            
+        # 找出要移除的歌曲在 list 的位置
+        remove_pos = next((i for i, song in enumerate(self.playlist) if song["id"] == song_id), None)
+        if remove_pos is None:
+            logger.warning(f"移除歌曲失敗，找不到 ID={song_id} 的歌曲")
+            return self.playlist
+            
+        removed_song = self.playlist.pop(remove_pos)
+        logger.info(f"已通過 ID 移除歌曲: {removed_song['title']} (ID: {removed_song['id']})，剩餘 {len(self.playlist)} 首")
+        
+        # 修正 current_index
+        if remove_pos < self.current_index:
+            self.current_index -= 1
+        elif remove_pos == self.current_index:
+            # 如果移除的是目前播放的，指向下一首，若無則上一首，若全清空則 -1
+            if self.current_index >= len(self.playlist):
+                self.current_index = len(self.playlist) - 1
+                logger.debug(f"移除當前播放歌曲，current_index 修正為 {self.current_index}")
+        if not self.playlist:
+            self.current_index = -1
+            logger.debug("播放清單已清空，current_index 設為 -1")
+            
+        self._reindex_playlist()
+        return self.playlist
 
 if __name__ == "__main__":
     manager = MusicPlaylistManager()

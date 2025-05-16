@@ -11,7 +11,7 @@ import json
 import traceback
 from dotenv import load_dotenv
 
-version = "v1.1"
+version = "v1.2"
 start_time = datetime.now()
 
 # 讀取設定檔

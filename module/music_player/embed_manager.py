@@ -8,7 +8,7 @@ class MusicEmbedManager:
     # ---------------------
     # 播放相關嵌入
     # ---------------------
-    def playing_embed(self, song_info, is_looping, is_playing, current_time=0):
+    def playing_embed(self, song_info: dict, is_looping: bool, is_playing: bool, current_time: int = 0) -> discord.Embed:
         """
         生成播放中的嵌入訊息
         :param song_info: dict, 包含歌曲相關資訊
