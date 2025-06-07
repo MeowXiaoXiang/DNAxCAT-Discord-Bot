@@ -281,12 +281,13 @@ class MusicPlayerCog(commands.Cog):
         try:
             is_playlist = self.yt_dlp_manager.is_playlist(url)
             # 先發送一則 loading 訊息，後續都用這則訊息 edit
-            parsing_msg = await interaction.followup.send("⏳ 正在解析撥放清單，請稍候...")
-            self.player_message = await parsing_msg.channel.fetch_message(parsing_msg.id)
+            await interaction.followup.send("⏳ 正在解析撥放清單，請稍候...")
+            original_msg = await interaction.original_response()
+            self.player_message = await original_msg.channel.fetch_message(original_msg.id)
             if is_playlist:
-                await self._handle_playlist_start(interaction, url, self.player_message)
+                await self._handle_playlist_start(interaction, url)
             else:
-                await self._handle_single_song_start(interaction, url, self.player_message)
+                await self._handle_single_song_start(interaction, url)
         except Exception as e:
             logger.error(f"啟動播放器時發生錯誤：{e}")
             if self.player_message:
@@ -295,7 +296,7 @@ class MusicPlayerCog(commands.Cog):
             else:
                 await interaction.followup.send(f"啟動播放器時發生錯誤：{e}")
 
-    async def _handle_single_song_start(self, interaction, url, player_message):
+    async def _handle_single_song_start(self, interaction, url):
         try:
             # 下載音樂資源（不先顯示embed，等下載好才顯示）
             song_info, file_path = await self.yt_dlp_manager.async_download(url)
@@ -310,12 +311,12 @@ class MusicPlayerCog(commands.Cog):
                 
                 # 顯示錯誤訊息
                 embed = self.embed_manager.error_embed(f"❌ {display_message}\n\n請嘗試其他影片或檢查 YouTube 連結是否正確。")
-                await player_message.edit(content=None, embed=embed, view=None)
+                await self.player_message.edit(content=None, embed=embed, view=None)
                 return
             # 一般下載失敗
             elif not song_info or not file_path:
                 embed = self.embed_manager.error_embed("下載音樂失敗，請確認 URL 是否正確。")
-                await player_message.edit(content=None, embed=embed, view=None)
+                await self.add_musicplayer_message.edit(content=None, embed=embed, view=None)
                 return
                 
             # 新增歌曲到播放清單，並用 add 回傳的 song_info（含 index）
@@ -330,22 +331,21 @@ class MusicPlayerCog(commands.Cog):
             except discord.ClientException as e:
                 logger.error(f"連接語音頻道失敗：{e}")
                 embed = self.embed_manager.error_embed("無法加入語音頻道，請確認機器人是否有權限。")
-                await player_message.edit(content=None, embed=embed, view=None)
+                await self.player_message.edit(content=None, embed=embed, view=None)
                 return
             await self.player_controller.play_song(song_info["id"])
             # 這裡一定要用 add 後的 song_info
             embed = self.embed_manager.playing_embed(song_info, is_looping=False, is_playing=True)
             await self.update_buttons_view()
-            await player_message.edit(content=None, embed=embed, view=self.buttons_view)
-            self.player_message = player_message
+            await self.player_message.edit(content=None, embed=embed, view=self.buttons_view)
             if not self.update_task.is_running():
                 self.update_task.start()
         except Exception as e:
             logger.error(f"啟動單曲播放時發生錯誤：{e}")
             embed = self.embed_manager.error_embed(f"啟動播放器時發生錯誤：{e}")
-            await player_message.edit(content=None, embed=embed, view=None)
+            await self.player_message.edit(content=None, embed=embed, view=None)
 
-    async def _handle_playlist_start(self, interaction, url, player_message):
+    async def _handle_playlist_start(self, interaction, url):
         try:
             # 解析播放清單
             playlist_entries = await self.yt_dlp_manager.async_extract_playlist_info(url)
@@ -358,7 +358,7 @@ class MusicPlayerCog(commands.Cog):
                     embed = self.embed_manager.error_embed(f"❌ {display_message}")
                 else:
                     embed = self.embed_manager.error_embed("無法解析播放清單或播放清單為空，請確認 URL 是否正確。")
-                await player_message.edit(content=None, embed=embed, view=None)
+                await self.player_message.edit(content=None, embed=embed, view=None)
                 return
                 
             # 下載第一首歌曲（不先顯示embed，等下載好才顯示）
@@ -376,7 +376,7 @@ class MusicPlayerCog(commands.Cog):
                 # 檢查播放清單是否還有其他歌曲
                 if len(playlist_entries) > 1:
                     # 顯示正在嘗試下一首的訊息
-                    await player_message.edit(content=None, embed=self.embed_manager.error_embed(f"⚠️ 播放清單第一首歌曲 {first_song['title']} 無法播放: {display_message}\n\n正在嘗試下一首..."), view=None)
+                    await self.player_message.edit(content=None, embed=self.embed_manager.error_embed(f"⚠️ 播放清單第一首歌曲 {first_song['title']} 無法播放: {display_message}\n\n正在嘗試下一首..."), view=None)
                     
                     # 移除第一首歌曲，使用第二首作為起始歌曲
                     playlist_entries = playlist_entries[1:]
@@ -388,17 +388,17 @@ class MusicPlayerCog(commands.Cog):
                     # 檢查新的第一首是否可以下載
                     if not song_info or not file_path:
                         embed = self.embed_manager.error_embed(f"❌ 播放清單前兩首歌曲都無法播放。請嘗試其他播放清單。")
-                        await player_message.edit(content=None, embed=embed, view=None)
+                        await self.player_message.edit(content=None, embed=embed, view=None)
                         return
                 else:
                     # 如果播放清單只有一首歌，並且無法播放
                     embed = self.embed_manager.error_embed(f"❌ {display_message}\n\n播放清單只有一首歌曲且無法播放。請嘗試其他播放清單。")
-                    await player_message.edit(content=None, embed=embed, view=None)
+                    await self.player_message.edit(content=None, embed=embed, view=None)
                     return
             # 一般下載失敗
             elif not song_info or not file_path:
                 embed = self.embed_manager.error_embed("下載第一首歌曲失敗，請稍後再試。")
-                await player_message.edit(content=None, embed=embed, view=None)
+                await self.player_message.edit(content=None, embed=embed, view=None)
                 return
                 
             # 批次 add 進 playlist_manager，並取得 add 後的第一首（含 index）
@@ -414,20 +414,19 @@ class MusicPlayerCog(commands.Cog):
             except discord.ClientException as e:
                 logger.error(f"連接語音頻道失敗：{e}")
                 embed = self.embed_manager.error_embed("無法加入語音頻道，請確認機器人是否有權限。")
-                await player_message.edit(content=None, embed=embed, view=None)
+                await self.player_message.edit(content=None, embed=embed, view=None)
                 return
             await self.player_controller.play_song(song_info["id"])
             # 這裡一定要用 add 後的 first_added_song
             embed = self.embed_manager.playing_embed(first_added_song, is_looping=False, is_playing=True)
             await self.update_buttons_view()
-            await player_message.edit(content=None, embed=embed, view=self.buttons_view)
-            self.player_message = player_message
+            await self.player_message.edit(content=None, embed=embed, view=self.buttons_view)
             if not self.update_task.is_running():
                 self.update_task.start()
         except Exception as e:
             logger.error(f"啟動播放清單時發生錯誤：{e}")
             embed = self.embed_manager.error_embed(f"啟動播放清單時發生錯誤：{e}")
-            await player_message.edit(content=None, embed=embed, view=None)
+            await self.player_message.edit(content=None, embed=embed, view=None)
 
     @discord.app_commands.command(name="音樂-新增音樂到播放清單", description="新增音樂到播放清單")
     @discord.app_commands.describe(url="YouTube 影片或播放清單的網址")
