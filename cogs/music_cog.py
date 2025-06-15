@@ -275,16 +275,19 @@ class MusicPlayerCog(commands.Cog):
             await interaction.followup.send("請先加入語音頻道再執行此指令。")
             return
         # 檢查播放器是否正在運行
-        if self.player_controller.is_playing:
+        if (
+            self.player_controller.voice_client and
+            self.player_controller.voice_client.is_connected() and
+            self.player_message
+        ):
             await interaction.followup.send("播放器已經啟動，請使用 \"音樂-新增音樂至播放清單\" 功能。")
             return
         try:
             is_playlist = self.yt_dlp_manager.is_playlist(url)
-            # 先發送一則 loading 訊息，後續都用這則訊息 edit
-            await interaction.followup.send("⏳ 正在解析撥放清單，請稍候...")
             original_msg = await interaction.original_response()
             self.player_message = await original_msg.channel.fetch_message(original_msg.id)
             if is_playlist:
+                await interaction.followup.send("⏳ 正在解析撥放清單，請稍候...")
                 await self._handle_playlist_start(interaction, url)
             else:
                 await self._handle_single_song_start(interaction, url)
@@ -1046,6 +1049,7 @@ class MusicPlayerCog(commands.Cog):
                 if self.player_message:
                     embed = self.embed_manager.error_embed("❌ 無法自動重連語音頻道，請手動重新啟動播放器或檢查語音伺服器狀態。")
                     await self.player_message.edit(embed=embed, view=None)
+                await self.cleanup_resources()
                 return
                 
             # 檢查播放控制器是否已初始化
