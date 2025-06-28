@@ -290,6 +290,7 @@ class MusicPlayerCog(commands.Cog):
                 await interaction.followup.send("⏳ 正在解析撥放清單，請稍候...")
                 await self._handle_playlist_start(interaction, url)
             else:
+                await interaction.followup.send("⏳ 正在解析單曲音樂，請稍候...")
                 await self._handle_single_song_start(interaction, url)
         except Exception as e:
             logger.error(f"啟動播放器時發生錯誤：{e}")
