@@ -81,7 +81,7 @@ pip install -r requirements.txt
 
 你可以使用 Docker 或 Docker Compose 來運行這個專案。
 
-### 使用 Docker Compose（推薦）
+### Docker Compose
 
 1. 請先設定好 `config/settings.json` 與 `.env`。
 2. 直接啟動：
@@ -96,7 +96,7 @@ pip install -r requirements.txt
    docker compose down
    ```
 
-### 傳統 Docker 指令
+### DockerFile
 
 1. 建立 Docker 映像：
 
