@@ -1,6 +1,6 @@
 # DNAxCAT_DiscordBot
 
-![Python 3.10](https://img.shields.io/badge/Python-3.10-blue?logo=python) ![Version v1.1](https://img.shields.io/badge/Version-v1.1-orange)
+![Python 3.10](https://img.shields.io/badge/Python-3.10-blue?logo=python) ![Version v1.2](https://img.shields.io/badge/Version-v1.2-orange)
 
 ## 介紹
 
